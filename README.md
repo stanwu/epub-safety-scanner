@@ -2,6 +2,13 @@
 
 Detect and fix malicious content embedded in EPUB files. Scans entirely in-memory — no temp files, no disk extraction.
 
+## Download
+
+> [!TIP]
+> For security, always download from this GitHub repository directly. Do not download from third-party sources.
+
+**[Download scan-epub-skill.zip](https://github.com/stanwu/epub-safety-scanner/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)** — go to the latest successful run, scroll to **Artifacts**, and download `scan-epub-skill`.
+
 ## Features
 
 - **JavaScript detection** — `<script>` tags, inline event handlers (`onclick`, `onerror`, etc.), `javascript:` URIs, `eval()`, `fetch()`, `WebSocket`, and more
@@ -159,22 +166,7 @@ If no threats are found, no fixed file is created.
 
 ## Claude.ai Skill
 
-Use this scanner as a Claude.ai Skill — no installation required.
-
-> [!TIP]
-> For security, always download from this GitHub repository directly. Do not download from third-party sources.
-
-### 1. Download
-
-**[Download scan-epub-skill.zip](https://github.com/stanwu/epub-safety-scanner/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)** — go to the latest successful run, scroll to **Artifacts**, and download `scan-epub-skill`.
-
-Or build it locally:
-
-```bash
-make skill
-```
-
-### 2. Upload to Claude.ai
+Use the downloaded `scan-epub-skill.zip` as a Claude.ai Skill — no installation required.
 
 1. Go to [claude.ai](https://claude.ai)
 2. Navigate to **Customize > Skills**
@@ -182,6 +174,12 @@ make skill
 4. Upload `scan-epub-skill.zip`
 
 Once uploaded, Claude will use the scanner when you ask it to check EPUB files for security threats.
+
+Or build the skill ZIP locally:
+
+```bash
+make skill
+```
 
 ## Development
 
