@@ -1,5 +1,10 @@
 # EPUB Safety Scanner
 
+[![CI](https://github.com/stanwu/epub-safety-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/stanwu/epub-safety-scanner/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/stanwu/epub-safety-scanner)](https://github.com/stanwu/epub-safety-scanner/releases/latest)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Detect and fix malicious content embedded in EPUB files. Scans entirely in-memory — no temp files, no disk extraction.
 
 ## Download
