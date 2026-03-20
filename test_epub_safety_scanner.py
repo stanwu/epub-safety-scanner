@@ -1697,5 +1697,479 @@ class TestCombinedAttacks:
         assert has_finding(result, Severity.WARNING, "Malicious CSS", "external url()")
 
 
+# ── has_threats / is_clean Logic Tests ────────────────────────────────────────
+
+
+class TestHasThreatsLogic:
+    """Exhaustive tests for the unified has_threats / is_clean judgment logic."""
+
+    # ── Property tests: all severity permutations ───────────────────────
+
+    def test_no_findings(self):
+        r = ScanResult(epub_path="a.epub")
+        assert r.is_clean is True
+        assert r.has_threats is False
+
+    def test_only_info(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[Finding(Severity.INFO, "Link", "f.xhtml", "ext link")],
+        )
+        assert r.is_clean is False
+        assert r.has_threats is False
+
+    def test_only_warning(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[Finding(Severity.WARNING, "CSS", "f.css", "ext url")],
+        )
+        assert r.is_clean is False
+        assert r.has_threats is True
+
+    def test_only_critical(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[Finding(Severity.CRITICAL, "JS", "f.xhtml", "script")],
+        )
+        assert r.is_clean is False
+        assert r.has_threats is True
+
+    def test_info_and_warning(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[
+                Finding(Severity.INFO, "Link", "f.xhtml", "ext link"),
+                Finding(Severity.WARNING, "CSS", "f.css", "ext url"),
+            ],
+        )
+        assert r.has_threats is True
+
+    def test_info_and_critical(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[
+                Finding(Severity.INFO, "Link", "f.xhtml", "ext link"),
+                Finding(Severity.CRITICAL, "JS", "f.xhtml", "script"),
+            ],
+        )
+        assert r.has_threats is True
+
+    def test_warning_and_critical(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[
+                Finding(Severity.WARNING, "CSS", "f.css", "ext url"),
+                Finding(Severity.CRITICAL, "JS", "f.xhtml", "script"),
+            ],
+        )
+        assert r.has_threats is True
+
+    def test_all_three_severities(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[
+                Finding(Severity.INFO, "Link", "f.xhtml", "ext link"),
+                Finding(Severity.WARNING, "CSS", "f.css", "ext url"),
+                Finding(Severity.CRITICAL, "JS", "f.xhtml", "script"),
+            ],
+        )
+        assert r.has_threats is True
+
+    def test_error_state(self):
+        r = ScanResult(epub_path="a.epub", error="corrupt")
+        assert r.is_clean is False
+        assert r.has_threats is False
+
+    def test_error_with_findings(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            error="partial read",
+            findings=[Finding(Severity.CRITICAL, "JS", "f.xhtml", "script")],
+        )
+        assert r.is_clean is False
+        assert r.has_threats is True
+
+    # ── format_findings: terminal display ───────────────────────────────
+
+    def test_display_no_findings_shows_clean(self):
+        r = ScanResult(epub_path="a.epub")
+        out = format_findings(r, use_color=False)
+        assert "CLEAN" in out
+
+    def test_display_info_only_shows_clean(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[Finding(Severity.INFO, "Link", "f.xhtml", "ext link")],
+        )
+        out = format_findings(r, use_color=False, verbose=False)
+        assert "CLEAN" in out
+
+    def test_display_info_only_verbose_shows_findings(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[Finding(Severity.INFO, "Link", "f.xhtml", "ext link")],
+        )
+        out = format_findings(r, use_color=False, verbose=True)
+        assert "CLEAN" not in out
+        assert "ext link" in out
+
+    def test_display_warning_shows_findings(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[Finding(Severity.WARNING, "CSS", "f.css", "ext url")],
+        )
+        out = format_findings(r, use_color=False)
+        assert "CLEAN" not in out
+        assert "WARNING" in out
+
+    def test_display_critical_shows_findings(self):
+        r = ScanResult(
+            epub_path="a.epub",
+            findings=[Finding(Severity.CRITICAL, "JS", "f.xhtml", "script")],
+        )
+        out = format_findings(r, use_color=False)
+        assert "CLEAN" not in out
+        assert "CRITICAL" in out
+
+    # ── format_report_md: report output ─────────────────────────────────
+
+    def test_report_no_findings_all_clean(self):
+        results = [ScanResult(epub_path="a.epub")]
+        md = format_report_md(results)
+        assert "All files are clean" in md
+        assert "**Clean**: 1" in md
+
+    def test_report_info_only_counts_as_clean(self):
+        results = [
+            ScanResult(
+                epub_path="a.epub",
+                findings=[Finding(Severity.INFO, "Link", "f.xhtml", "ext link")],
+            )
+        ]
+        md = format_report_md(results)
+        assert "All files are clean" in md
+        assert "**Clean**: 1" in md
+
+    def test_report_info_only_not_in_flagged(self):
+        """INFO-only file should NOT appear in report details (non-verbose)."""
+        results = [
+            ScanResult(
+                epub_path="info_only.epub",
+                findings=[Finding(Severity.INFO, "Link", "f.xhtml", "ext link")],
+            )
+        ]
+        md = format_report_md(results, verbose=False)
+        assert "`info_only.epub`" not in md
+
+    def test_report_info_only_verbose_shown(self):
+        """INFO-only file SHOULD appear in verbose report."""
+        results = [
+            ScanResult(
+                epub_path="info_only.epub",
+                findings=[Finding(Severity.INFO, "Link", "f.xhtml", "ext link")],
+            )
+        ]
+        md = format_report_md(results, verbose=True)
+        assert "`info_only.epub`" in md
+
+    def test_report_warning_shown(self):
+        results = [
+            ScanResult(
+                epub_path="warn.epub",
+                findings=[Finding(Severity.WARNING, "CSS", "f.css", "ext url")],
+            )
+        ]
+        md = format_report_md(results)
+        assert "`warn.epub`" in md
+        assert "**Clean**: 0" in md
+
+    def test_report_mixed_clean_and_threats(self):
+        results = [
+            ScanResult(epub_path="clean.epub"),
+            ScanResult(
+                epub_path="info.epub",
+                findings=[Finding(Severity.INFO, "Link", "f.xhtml", "ext")],
+            ),
+            ScanResult(
+                epub_path="bad.epub",
+                findings=[Finding(Severity.CRITICAL, "JS", "f.xhtml", "script")],
+            ),
+        ]
+        md = format_report_md(results)
+        # clean + info-only = 2 clean
+        assert "**Clean**: 2" in md
+        # Only bad.epub in details
+        assert "`bad.epub`" in md
+        assert "`clean.epub`" not in md
+        assert "`info.epub`" not in md
+
+    # ── CLI --fix: only fix has_threats ──────────────────────────────────
+
+    def test_fix_skips_info_only(self, capsys, monkeypatch):
+        """--fix should NOT attempt to fix INFO-only files."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Create epub with only external links (INFO)
+            make_epub(
+                {
+                    "ch1.xhtml": (
+                        '<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+                        '<a href="https://example.com">link</a>'
+                        "</body></html>"
+                    ),
+                },
+                os.path.join(tmpdir, "info_only.epub"),
+            )
+            monkeypatch.setattr(
+                "sys.argv",
+                ["scanner", "--path", tmpdir, "--no-color", "--fix", "--notag"],
+            )
+            ret = main()
+            output = capsys.readouterr().out
+            assert "CLEAN" in output
+            assert "Fixing" not in output
+            assert ret == 0
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    def test_fix_processes_warning(self, capsys, monkeypatch):
+        """--fix SHOULD attempt to fix files with WARNING findings."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {
+                    "style.css": "body { background: url('https://evil.com/pixel.gif'); }",
+                },
+                os.path.join(tmpdir, "warn.epub"),
+            )
+            monkeypatch.setattr(
+                "sys.argv",
+                ["scanner", "--path", tmpdir, "--no-color", "--fix", "--notag"],
+            )
+            main()
+            output = capsys.readouterr().out
+            assert "Fixing" in output
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    def test_fix_processes_critical(self, capsys, monkeypatch):
+        """--fix SHOULD attempt to fix files with CRITICAL findings."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {
+                    "ch1.xhtml": (
+                        '<html xmlns="http://www.w3.org/1999/xhtml"><body><script>alert(1)</script></body></html>'
+                    ),
+                },
+                os.path.join(tmpdir, "crit.epub"),
+            )
+            monkeypatch.setattr(
+                "sys.argv",
+                ["scanner", "--path", tmpdir, "--no-color", "--fix", "--notag"],
+            )
+            main()
+            output = capsys.readouterr().out
+            assert "Fixing" in output
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    # ── CLI --tag: only tag has_threats ──────────────────────────────────
+
+    def test_tag_skips_info_only(self, capsys, monkeypatch):
+        """Auto-tag should NOT tag INFO-only files."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {
+                    "ch1.xhtml": (
+                        '<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+                        '<a href="https://example.com">link</a>'
+                        "</body></html>"
+                    ),
+                },
+                os.path.join(tmpdir, "info_only.epub"),
+            )
+            monkeypatch.setattr(
+                "sys.argv",
+                ["scanner", "--path", tmpdir, "--no-color"],
+            )
+            main()
+            # File should NOT be tagged
+            assert Path(os.path.join(tmpdir, "info_only.epub")).exists()
+            assert not Path(os.path.join(tmpdir, "[detect] info_only.epub")).exists()
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    def test_tag_tags_warning(self, capsys, monkeypatch):
+        """Auto-tag SHOULD tag files with WARNING."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {
+                    "style.css": "body { background: url('https://evil.com/pixel.gif'); }",
+                },
+                os.path.join(tmpdir, "warn.epub"),
+            )
+            monkeypatch.setattr(
+                "sys.argv",
+                ["scanner", "--path", tmpdir, "--no-color"],
+            )
+            main()
+            assert Path(os.path.join(tmpdir, "[detect] warn.epub")).exists()
+            assert not Path(os.path.join(tmpdir, "warn.epub")).exists()
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    def test_tag_tags_critical(self, capsys, monkeypatch):
+        """Auto-tag SHOULD tag files with CRITICAL."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {
+                    "ch1.xhtml": (
+                        '<html xmlns="http://www.w3.org/1999/xhtml"><body><script>alert(1)</script></body></html>'
+                    ),
+                },
+                os.path.join(tmpdir, "crit.epub"),
+            )
+            monkeypatch.setattr(
+                "sys.argv",
+                ["scanner", "--path", tmpdir, "--no-color"],
+            )
+            main()
+            assert Path(os.path.join(tmpdir, "[detect] crit.epub")).exists()
+            assert not Path(os.path.join(tmpdir, "crit.epub")).exists()
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    # ── Exit code ───────────────────────────────────────────────────────
+
+    def test_exit_0_when_clean(self, monkeypatch):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub({"ch1.xhtml": "<html><body>ok</body></html>"}, os.path.join(tmpdir, "ok.epub"))
+            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color", "--notag"])
+            ret = main()
+            assert ret == 0
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    def test_exit_0_when_info_only(self, monkeypatch):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {
+                    "ch1.xhtml": (
+                        '<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+                        '<a href="https://example.com">link</a>'
+                        "</body></html>"
+                    ),
+                },
+                os.path.join(tmpdir, "info.epub"),
+            )
+            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color", "--notag"])
+            ret = main()
+            assert ret == 0
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    def test_exit_1_when_critical(self, monkeypatch):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {
+                    "ch1.xhtml": (
+                        '<html xmlns="http://www.w3.org/1999/xhtml"><body><script>alert(1)</script></body></html>'
+                    ),
+                },
+                os.path.join(tmpdir, "bad.epub"),
+            )
+            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color", "--notag"])
+            ret = main()
+            assert ret == 1
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    def test_exit_0_when_warning_only(self, monkeypatch):
+        """WARNING-only should return 0 (exit 1 is only for CRITICAL)."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            make_epub(
+                {"style.css": "body { background: url('https://evil.com/pixel.gif'); }"},
+                os.path.join(tmpdir, "warn.epub"),
+            )
+            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color", "--notag"])
+            ret = main()
+            assert ret == 0
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+    # ── Self-closing script detection ───────────────────────────────────
+
+    def test_self_closing_script_detected(self):
+        """Self-closing <script .../> should be detected as CRITICAL."""
+        result = scan_epub_with_files(
+            {
+                "ch1.xhtml": (
+                    '<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+                    '<!-- kobo-style --><script xmlns="http://www.w3.org/1999/xhtml" '
+                    'type="text/javascript" src="../js/kobo.js"/>'
+                    "</body></html>"
+                ),
+            }
+        )
+        assert result.has_threats is True
+        assert has_finding(result, Severity.CRITICAL, "JavaScript", "script")
+
+    def test_self_closing_script_fixed(self):
+        """EPUBFixer should remove self-closing <script .../>."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            epub_path = os.path.join(tmpdir, "kobo.epub")
+            make_epub(
+                {
+                    "ch1.xhtml": (
+                        '<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+                        '<script type="text/javascript" src="../js/kobo.js"/>'
+                        "<p>content</p></body></html>"
+                    ),
+                },
+                epub_path,
+            )
+            fixer = EPUBFixer()
+            fix_result = fixer.fix(epub_path)
+            assert fix_result.has_changes
+            assert any("ch1.xhtml" in f for f in fix_result.sanitized_files)
+            # Verify the fixed file is clean
+            scanner = EPUBScanner()
+            scan = scanner._scan_single(fix_result.fixed_path)
+            assert scan.has_threats is False
+        finally:
+            for f in Path(tmpdir).glob("*"):
+                f.unlink()
+            os.rmdir(tmpdir)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

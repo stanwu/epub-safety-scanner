@@ -39,6 +39,11 @@ class ScanResult:
         return not self.findings and not self.error
 
     @property
+    def has_threats(self) -> bool:
+        """True if file has CRITICAL or WARNING findings (INFO-only is not a threat)."""
+        return self.critical_count > 0 or self.warning_count > 0
+
+    @property
     def critical_count(self) -> int:
         return sum(1 for f in self.findings if f.severity == Severity.CRITICAL)
 
@@ -886,9 +891,9 @@ def format_findings(result: ScanResult, use_color: bool = True, verbose: bool = 
         lines.append(c(Severity.CRITICAL, f"  ERROR: {result.error}"))
         return "\n".join(lines)
 
-    # Treat as clean if no findings, or all findings are INFO and not verbose
+    # Treat as clean if no threats (INFO-only is not a threat)
     visible_findings = result.findings if verbose else [f for f in result.findings if f.severity != Severity.INFO]
-    if result.is_clean or not visible_findings:
+    if not result.has_threats and not (verbose and result.findings):
         lines.append(c(Severity.INFO, "  CLEAN - No threats detected"))
         return "\n".join(lines)
 
@@ -938,9 +943,7 @@ def format_report_md(results: list[ScanResult], verbose: bool = False) -> str:
     if verbose:
         total_clean = sum(1 for r in results if r.is_clean)
     else:
-        total_clean = sum(
-            1 for r in results if r.is_clean or (r.critical_count == 0 and r.warning_count == 0 and not r.error)
-        )
+        total_clean = sum(1 for r in results if not r.has_threats and not r.error)
 
     lines.append("# EPUB Safety Scanner Report")
     lines.append("")
@@ -956,11 +959,7 @@ def format_report_md(results: list[ScanResult], verbose: bool = False) -> str:
     lines.append("")
 
     # Filter to only files with findings or errors
-    flagged = [
-        r
-        for r in results
-        if r.error or (verbose and not r.is_clean) or (not verbose and (r.critical_count > 0 or r.warning_count > 0))
-    ]
+    flagged = [r for r in results if r.error or r.has_threats or (verbose and not r.is_clean)]
 
     if not flagged:
         lines.append("All files are clean. No threats detected.")
@@ -1110,13 +1109,10 @@ def main() -> int:
         print(_b(f"  TOTAL: Scanned {len(results)} files — {total_critical} critical, {total_warning} warnings"))
         print(f"{'=' * 70}")
         for r in results:
-            _effectively_clean = r.is_clean or (
-                not args.verbose and r.critical_count == 0 and r.warning_count == 0 and not r.error
-            )
             if r.error:
                 print(f"  {_c(Severity.CRITICAL, 'ERROR')}  {r.epub_path}")
                 print(f"         {r.error}")
-            elif _effectively_clean:
+            elif not r.has_threats:
                 print(f"  {_c(Severity.INFO, 'CLEAN')}  {r.epub_path}")
             else:
                 status_parts = []
@@ -1146,7 +1142,7 @@ def main() -> int:
     fixed_set: set[str] = set()
     if args.fix:
         fixer = EPUBFixer()
-        fix_targets = [r for r in results if not r.error and not r.is_clean]
+        fix_targets = [r for r in results if not r.error and r.has_threats]
         if fix_targets:
             print(f"\n{'=' * 70}")
             print("  Fixing EPUBs...")
@@ -1178,10 +1174,7 @@ def main() -> int:
     if not args.notag:
         printed_header = False
         for result in results:
-            if result.error:
-                continue
-            has_threats = result.critical_count > 0 or result.warning_count > 0
-            if not has_threats:
+            if result.error or not result.has_threats:
                 continue
             ep = Path(result.epub_path)
             if not ep.exists():
