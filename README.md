@@ -161,7 +161,10 @@ If no threats are found, no fixed file is created.
 
 Use this scanner as a Claude.ai Skill — no installation required.
 
-### Download
+> [!TIP]
+> For security, always download from this GitHub repository directly. Do not download from third-party sources.
+
+### 1. Download
 
 **[Download scan-epub-skill.zip](https://github.com/stanwu/epub-safety-scanner/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)** — go to the latest successful run, scroll to **Artifacts**, and download `scan-epub-skill`.
 
@@ -171,7 +174,7 @@ Or build it locally:
 make skill
 ```
 
-### Upload to Claude.ai
+### 2. Upload to Claude.ai
 
 1. Go to [claude.ai](https://claude.ai)
 2. Navigate to **Customize > Skills**
