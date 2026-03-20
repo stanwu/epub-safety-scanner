@@ -224,7 +224,7 @@ JS_PATTERNS = [
     (re.compile(r"</script>", re.IGNORECASE), "script closing tag detected"),
     (re.compile(r"javascript\s*:", re.IGNORECASE), "javascript: URI detected"),
     (re.compile(r"\beval\s*\(", re.IGNORECASE), "eval() call detected"),
-    (re.compile(r"\bFunction\s*\(", re.IGNORECASE), "Function() constructor detected"),
+    (re.compile(r"\bFunction\s*\("), "Function() constructor detected"),
     (re.compile(r"\bsetTimeout\s*\(", re.IGNORECASE), "setTimeout() detected"),
     (re.compile(r"\bsetInterval\s*\(", re.IGNORECASE), "setInterval() detected"),
     (re.compile(r"\bdocument\s*\.[a-zA-Z]"), "DOM manipulation detected"),
@@ -299,7 +299,7 @@ XHTML_NS = "http://www.w3.org/1999/xhtml"
 class EPUBScanner:
     """Scans EPUB files for security threats."""
 
-    def scan(self, path_pattern: str) -> list[ScanResult]:
+    def scan(self, path_pattern: str, progress: bool = False) -> list[ScanResult]:
         """Scan EPUB file(s) matching the given path or glob pattern."""
         expanded = os.path.expanduser(path_pattern)
         # If a directory is given, automatically scan *.epub inside it
@@ -309,12 +309,17 @@ class EPUBScanner:
         if not paths:
             return [ScanResult(epub_path=expanded, error=f"No files found matching: {expanded}")]
 
-        results = []
-        for p in sorted(paths):
-            if p.lower().endswith(".epub"):
-                results.append(self._scan_single(p))
-        if not results:
+        epub_paths = sorted(p for p in paths if p.lower().endswith(".epub"))
+        if not epub_paths:
             return [ScanResult(epub_path=expanded, error="No .epub files found in matched paths")]
+
+        total = len(epub_paths)
+        results = []
+        for i, p in enumerate(epub_paths, 1):
+            if progress:
+                name = Path(p).name
+                print(f"  [{i}/{total}] Scanning: {name}", file=sys.stderr, flush=True)
+            results.append(self._scan_single(p))
         return results
 
     def _scan_single(self, epub_path: str) -> ScanResult:
@@ -446,7 +451,8 @@ class EPUBScanner:
             return
 
         try:
-            header = zf.read(info.filename)[:16]
+            with zf.open(info.filename) as f:
+                header = f.read(16)
         except Exception:
             return
 
@@ -685,10 +691,13 @@ class FixResult:
 class EPUBFixer:
     """Removes malicious content from EPUB files and repacks them."""
 
+    _TAG_RE = re.compile(r"\[(?:fixed|detect)\]\s*", re.IGNORECASE)
+
     def fix(self, epub_path: str) -> FixResult:
         """Fix a single EPUB by removing threats. Returns FixResult."""
         p = Path(epub_path)
-        fixed_name = f"[fixed] {p.name}"
+        clean_name = self._TAG_RE.sub("", p.name)
+        fixed_name = f"[fixed] {clean_name}"
         fixed_path = str(p.parent / fixed_name)
         result = FixResult(original_path=epub_path, fixed_path=fixed_path)
 
@@ -1040,12 +1049,43 @@ def main() -> int:
         action="store_true",
         help="Remove threats and save as '[fixed] filename.epub'",
     )
+    parser.add_argument(
+        "--notag",
+        action="store_true",
+        help="Skip auto-tagging (by default, detected files are tagged with '[detect]' prefix)",
+    )
     args = parser.parse_args()
 
-    scanner = EPUBScanner()
-    results = scanner.scan(args.path)
-
     use_color = not args.no_color and sys.stdout.isatty()
+    _tag_re = re.compile(r"\[(?:fixed|detect)\]\s*", re.IGNORECASE)
+
+    # ── Pre-scan: strip all [fixed]/[detect] tags ───────────────────────
+    if not args.notag:
+        expanded = os.path.expanduser(args.path)
+        if os.path.isdir(expanded):
+            pre_glob = os.path.join(expanded, "*.epub")
+        else:
+            pre_glob = expanded
+        for p in sorted(glob.glob(pre_glob)):
+            if not p.lower().endswith(".epub"):
+                continue
+            pp = Path(p)
+            clean = _tag_re.sub("", pp.name)
+            clean = re.sub(r"  +", " ", clean).strip()
+            if clean != pp.name:
+                target = pp.parent / clean
+                if target.exists():
+                    print(f"  SKIP    {pp.name}: target '{clean}' already exists", file=sys.stderr)
+                else:
+                    try:
+                        pp.rename(target)
+                    except OSError as e:
+                        print(f"  SKIP    {pp.name}: {e}", file=sys.stderr)
+
+    # ── Scan ────────────────────────────────────────────────────────────
+    scanner = EPUBScanner()
+    results = scanner.scan(args.path, progress=True)
+
     total_critical = 0
     total_warning = 0
 
@@ -1093,28 +1133,68 @@ def main() -> int:
             fh.write(md)
         print(f"\n  Report saved to: {report_path}")
 
+    # ── Fix: replace original in-place ──────────────────────────────────
+    fixed_set: set[str] = set()
     if args.fix:
         fixer = EPUBFixer()
-        print(f"\n{'=' * 70}")
-        print("  Fixing EPUBs...")
-        print(f"{'=' * 70}")
-        for result in results:
-            if result.error or result.is_clean:
-                continue
-            fix_result = fixer.fix(result.epub_path)
+        fix_targets = [r for r in results if not r.error and not r.is_clean]
+        if fix_targets:
+            print(f"\n{'=' * 70}")
+            print("  Fixing EPUBs...")
+            print(f"{'=' * 70}")
+        for fi, result in enumerate(fix_targets, 1):
             name = Path(result.epub_path).name
-            if fix_result.error:
-                print(f"  FAILED  {name}: {fix_result.error}")
-            elif not fix_result.has_changes:
-                print(f"  SKIP    {name}: no changes needed")
-            else:
-                print(f"  FIXED   {name} -> {Path(fix_result.fixed_path).name}")
-                if fix_result.removed_files:
-                    for rf in fix_result.removed_files:
-                        print(f"            removed: {rf}")
-                if fix_result.sanitized_files:
-                    for sf in fix_result.sanitized_files:
-                        print(f"            sanitized: {sf}")
+            try:
+                print(f"  [{fi}/{len(fix_targets)}] Fixing: {name}", file=sys.stderr, flush=True)
+                fix_result = fixer.fix(result.epub_path)
+                if fix_result.error:
+                    print(f"  FAILED  {name}: {fix_result.error}")
+                elif not fix_result.has_changes:
+                    print(f"  SKIP    {name}: no changes needed")
+                else:
+                    # Replace original with fixed version
+                    os.replace(fix_result.fixed_path, result.epub_path)
+                    fixed_set.add(result.epub_path)
+                    print(f"  FIXED   {name}")
+                    if fix_result.removed_files:
+                        for rf in fix_result.removed_files:
+                            print(f"            removed: {rf}")
+                    if fix_result.sanitized_files:
+                        for sf in fix_result.sanitized_files:
+                            print(f"            sanitized: {sf}")
+            except Exception as e:
+                print(f"  FAILED  {name}: {e}")
+
+    # ── Post-scan: tag files ────────────────────────────────────────────
+    if not args.notag:
+        printed_header = False
+        for result in results:
+            if result.error:
+                continue
+            has_threats = result.critical_count > 0 or result.warning_count > 0
+            if not has_threats:
+                continue
+            ep = Path(result.epub_path)
+            if not ep.exists():
+                continue
+            tag = "[fixed] " if result.epub_path in fixed_set else "[detect] "
+            clean_name = _tag_re.sub("", ep.name)
+            clean_name = re.sub(r"  +", " ", clean_name).strip()
+            new_name = f"{tag}{clean_name}"
+            target = ep.parent / new_name
+            if not printed_header:
+                print(f"\n{'=' * 70}")
+                print("  Tagging EPUBs...")
+                print(f"{'=' * 70}")
+                printed_header = True
+            if target.exists():
+                print(f"  SKIP    {ep.name}: target '{new_name}' already exists")
+                continue
+            try:
+                ep.rename(target)
+                print(f"  TAGGED  {ep.name} -> {new_name}")
+            except OSError as e:
+                print(f"  FAILED  {ep.name}: {e}")
 
     return 1 if total_critical > 0 else 0
 

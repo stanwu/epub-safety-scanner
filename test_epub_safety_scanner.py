@@ -1637,8 +1637,10 @@ class TestEPUBFixer:
             output = capsys.readouterr().out
 
             assert "FIXED" in output
-            assert "[fixed] bad.epub" in output
+            # --fix replaces original in-place, then tagged [fixed]
             assert Path(os.path.join(tmpdir, "[fixed] bad.epub")).exists()
+            # Original should no longer exist (replaced + renamed)
+            assert not Path(os.path.join(tmpdir, "bad.epub")).exists()
         finally:
             for f in Path(tmpdir).glob("*"):
                 f.unlink()
