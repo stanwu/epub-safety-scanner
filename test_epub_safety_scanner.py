@@ -1137,8 +1137,7 @@ class TestMarkdownReport:
     def test_report_clean_file(self):
         results = [ScanResult(epub_path="clean.epub")]
         md = format_report_md(results)
-        assert "CLEAN" in md
-        assert "`clean.epub`" in md
+        assert "All files are clean" in md
         assert "No threats detected" in md
 
     def test_report_error_file(self):
@@ -1168,7 +1167,8 @@ class TestMarkdownReport:
         assert "`ch2.xhtml`" in md
         assert "**[CRITICAL]**" in md
         assert "**[WARNING]**" in md
-        assert "Evidence: `<script>alert(1)</script>`" in md
+        assert "<script>alert(1)</script>" in md
+        assert "```" in md
 
     def test_report_summary_table(self):
         results = [

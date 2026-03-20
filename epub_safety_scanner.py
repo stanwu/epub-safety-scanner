@@ -516,8 +516,8 @@ class EPUBScanner:
                 # Extract a short evidence snippet
                 match = pattern.search(content)
                 assert match is not None
-                start = max(0, match.start() - 20)
-                end = min(len(content), match.end() + 40)
+                start = max(0, match.start() - 40)
+                end = min(len(content), match.end() + 80)
                 evidence = content[start:end].strip()
                 result.findings.append(
                     Finding(
@@ -633,6 +633,8 @@ class EPUBScanner:
 # ── Fixer ────────────────────────────────────────────────────────────────────
 
 # Regex patterns for sanitizing content
+_SCRIPT_EXTERNAL = re.compile(r"<script\b[^>]+src\s*=[^>]*/?\s*>(?:</script\s*>)?", re.IGNORECASE | re.DOTALL)
+_SCRIPT_SELF_CLOSING = re.compile(r"<script\b[^>]*/\s*>", re.IGNORECASE)
 _SCRIPT_BLOCK = re.compile(r"<script[\s>].*?</script\s*>", re.IGNORECASE | re.DOTALL)
 _EVENT_HANDLER_ATTR = re.compile(
     r"\s+(?:" + "|".join(EVENT_HANDLERS) + r')\s*=\s*(?:"[^"]*"|\'[^\']*\'|\S+)',
@@ -775,6 +777,9 @@ class EPUBFixer:
         """Sanitize HTML/XHTML/SVG content by removing malicious patterns."""
         content = data.decode("utf-8", errors="replace")
 
+        # Remove external <script src="..."> and self-closing <script/>
+        content = _SCRIPT_EXTERNAL.sub("", content)
+        content = _SCRIPT_SELF_CLOSING.sub("", content)
         # Remove <script>...</script> blocks
         content = _SCRIPT_BLOCK.sub("", content)
         # Remove <iframe>...</iframe> and self-closing <iframe/>
@@ -950,68 +955,72 @@ def format_report_md(results: list[ScanResult], verbose: bool = False) -> str:
     lines.append(f"- **Findings**: {', '.join(findings_parts)}")
     lines.append("")
 
-    # Summary table
-    lines.append("## Summary")
-    lines.append("")
-    lines.append("| Status | File |")
-    lines.append("|--------|------|")
-    for r in results:
-        name = Path(r.epub_path).name
-        is_effectively_clean = r.is_clean or (
-            not verbose and r.critical_count == 0 and r.warning_count == 0 and not r.error
-        )
-        if r.error:
-            lines.append(f"| {SEVERITY_EMOJI[Severity.CRITICAL]} ERROR | `{name}` |")
-        elif is_effectively_clean:
-            lines.append(f"| {SEVERITY_EMOJI[Severity.INFO]} CLEAN | `{name}` |")
-        else:
-            parts = []
-            if r.critical_count:
-                parts.append(f"{r.critical_count} critical")
-            if r.warning_count:
-                parts.append(f"{r.warning_count} warning")
-            if verbose and r.info_count:
-                parts.append(f"{r.info_count} info")
-            emoji = SEVERITY_EMOJI[Severity.CRITICAL] if r.critical_count else SEVERITY_EMOJI[Severity.WARNING]
-            lines.append(f"| {emoji} {', '.join(parts)} | `{name}` |")
-    lines.append("")
+    # Filter to only files with findings or errors
+    flagged = [
+        r
+        for r in results
+        if r.error or (verbose and not r.is_clean) or (not verbose and (r.critical_count > 0 or r.warning_count > 0))
+    ]
 
-    # Per-file details
-    for r in results:
-        name = Path(r.epub_path).name
-        lines.append(f"## `{name}`")
+    if not flagged:
+        lines.append("All files are clean. No threats detected.")
+        lines.append("")
+    else:
+        # Summary table (only flagged files)
+        lines.append("## Summary")
+        lines.append("")
+        lines.append("| Status | File |")
+        lines.append("|--------|------|")
+        for r in flagged:
+            name = Path(r.epub_path).name
+            if r.error:
+                lines.append(f"| {SEVERITY_EMOJI[Severity.CRITICAL]} ERROR | `{name}` |")
+            else:
+                parts = []
+                if r.critical_count:
+                    parts.append(f"{r.critical_count} critical")
+                if r.warning_count:
+                    parts.append(f"{r.warning_count} warning")
+                if verbose and r.info_count:
+                    parts.append(f"{r.info_count} info")
+                emoji = SEVERITY_EMOJI[Severity.CRITICAL] if r.critical_count else SEVERITY_EMOJI[Severity.WARNING]
+                lines.append(f"| {emoji} {', '.join(parts)} | `{name}` |")
         lines.append("")
 
-        if r.error:
-            lines.append(f"> **ERROR**: {r.error}")
+        # Per-file details (only flagged files)
+        for r in flagged:
+            name = Path(r.epub_path).name
+            lines.append(f"## `{name}`")
             lines.append("")
-            continue
 
-        is_effectively_clean = r.is_clean or (not verbose and r.critical_count == 0 and r.warning_count == 0)
-        if is_effectively_clean:
-            lines.append("No threats detected.")
-            lines.append("")
-            continue
-
-        # Group by category
-        categories: dict[str, list[Finding]] = {}
-        for f in r.findings:
-            if not verbose and f.severity == Severity.INFO:
+            if r.error:
+                lines.append(f"> **ERROR**: {r.error}")
+                lines.append("")
                 continue
-            categories.setdefault(f.category, []).append(f)
 
-        for category, findings in sorted(categories.items()):
-            lines.append(f"### {category}")
-            lines.append("")
-            for f in findings:
-                emoji = SEVERITY_EMOJI[f.severity]
-                lines.append(f"- {emoji} **[{f.severity.value}]** `{f.file_path}`: {f.description}")
-                if f.evidence:
-                    evidence = f.evidence.replace("\n", " ").replace("\r", "")
-                    if len(evidence) > 120:
-                        evidence = evidence[:120] + "..."
-                    lines.append(f"  - Evidence: `{evidence}`")
-            lines.append("")
+            # Group by category
+            categories: dict[str, list[Finding]] = {}
+            for f in r.findings:
+                if not verbose and f.severity == Severity.INFO:
+                    continue
+                categories.setdefault(f.category, []).append(f)
+
+            for category, findings in sorted(categories.items()):
+                lines.append(f"### {category}")
+                lines.append("")
+                for f in findings:
+                    emoji = SEVERITY_EMOJI[f.severity]
+                    lines.append(f"- {emoji} **[{f.severity.value}]** `{f.file_path}`: {f.description}")
+                    if f.evidence:
+                        evidence = f.evidence.replace("\r", "")
+                        if len(evidence) > 300:
+                            evidence = evidence[:300] + "..."
+                        lines.append("  - Evidence:")
+                        lines.append("    ```")
+                        for eline in evidence.split("\n"):
+                            lines.append(f"    {eline}")
+                        lines.append("    ```")
+                lines.append("")
 
     lines.append("---")
     lines.append("*Generated by EPUB Safety Scanner*")
