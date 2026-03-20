@@ -41,3 +41,7 @@ Thumbs.db
 
 # Pre-commit
 .pre-commit-cache/
+
+# Skill packaging
+*.zip
+skills/scan-epub/epub_safety_scanner.py

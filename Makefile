@@ -1,4 +1,4 @@
-.PHONY: test lint format check install clean
+.PHONY: test lint format check install clean skill
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -25,6 +25,13 @@ check: lint test
 install:
 	$(PIP) install -r requirements-dev.txt
 	$(PYTHON) -m pre_commit install
+
+## Package claude.ai skill as ZIP
+skill:
+	cp epub_safety_scanner.py skills/scan-epub/epub_safety_scanner.py
+	cd skills && zip -r ../scan-epub-skill.zip scan-epub/
+	rm skills/scan-epub/epub_safety_scanner.py
+	@echo "Created scan-epub-skill.zip"
 
 ## Clean build artifacts
 clean:

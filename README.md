@@ -13,6 +13,22 @@ Detect and fix malicious content embedded in EPUB files. Scans entirely in-memor
 - **External URL detection** — passive tracking via `src`, `action`, CSS `url()` flagged as WARNING; safe `<a href>` links kept as INFO
 - **Auto-fix mode** — remove threats and repack as `[fixed] filename.epub`
 - **Markdown report** — export detailed scan results to `.md` file
+- **Claude.ai Skill** — package as a skill for use in Claude.ai
+
+## Quick Start
+
+```bash
+git clone https://github.com/stanwu/epub-safety-scanner.git
+cd epub-safety-scanner
+
+# Scan all EPUBs on your Desktop
+python3 epub_safety_scanner.py --path ~/Desktop/
+
+# Fix any threats found
+python3 epub_safety_scanner.py --path ~/Desktop/ --fix
+```
+
+No external dependencies required — Python 3.9+ stdlib only.
 
 ## Requirements
 
@@ -22,51 +38,103 @@ Detect and fix malicious content embedded in EPUB files. Scans entirely in-memor
 ## Installation
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/stanwu/epub-safety-scanner.git
 cd epub-safety-scanner
+```
+
+For development (linting, testing):
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 
-## Usage
+## CLI Reference
+
+```
+python3 epub_safety_scanner.py --path PATH [OPTIONS]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--path PATH` | **(Required)** EPUB file, directory, or glob pattern. Supports `~` expansion. |
+| `--fix` | Remove threats and save as `[fixed] filename.epub` in the same directory. |
+| `--report FILE` | Write a detailed Markdown report to the specified file. |
+| `-v, --verbose` | Show INFO-level findings (external hyperlinks, hidden by default). |
+| `--no-color` | Disable colored terminal output. |
+
+**Exit codes:** `1` if any CRITICAL findings, `0` otherwise.
+
+## Usage Scenarios
+
+### Scenario 1: Scan a Single EPUB
 
 ```bash
-# Scan a single file
-python3 epub_safety_scanner.py --path book.epub
+python3 epub_safety_scanner.py --path ~/Desktop/book.epub
+```
 
-# Scan a directory (auto-finds *.epub)
+Outputs a severity summary per file. CLEAN means no threats detected.
+
+### Scenario 2: Batch Scan a Directory
+
+```bash
 python3 epub_safety_scanner.py --path ~/Desktop/
+```
 
-# Scan with glob pattern
-python3 epub_safety_scanner.py --path "books/*.epub"
+Automatically finds all `*.epub` files in the directory. Displays per-file results and a final summary showing how many files have issues.
 
-# Show INFO-level findings (external links, hidden by default)
-python3 epub_safety_scanner.py --path ~/Desktop/ -v
+### Scenario 3: Fix Threats and Verify
 
-# Fix threats and repack as [fixed] filename.epub
+```bash
+# Step 1: Fix all threats
 python3 epub_safety_scanner.py --path ~/Desktop/ --fix
 
-# Export Markdown report
-python3 epub_safety_scanner.py --path ~/Desktop/ --report report.md
+# Step 2: Verify the fixed files are clean
+python3 epub_safety_scanner.py --path ~/Desktop/"[fixed]*"
+```
 
-# Combine: scan, fix, and report
+Each fixed EPUB is saved as `[fixed] original.epub` in the same directory. The original file is left untouched.
+
+### Scenario 4: Generate a Report for Review
+
+```bash
+python3 epub_safety_scanner.py --path ~/Desktop/ --report report.md
+```
+
+Creates a Markdown report with:
+- Scan date and file count
+- Summary table (status per file)
+- Per-file details grouped by threat category
+- Evidence snippets for each finding
+
+### Scenario 5: Full Workflow (Scan + Fix + Report)
+
+```bash
 python3 epub_safety_scanner.py --path ~/Desktop/ --fix --report report.md
 ```
 
-## Output
+Scans all EPUBs, fixes threats, and exports a report — all in one command.
 
-Findings are categorized by severity:
+### Scenario 6: Verbose Mode — Inspect External Links
+
+```bash
+python3 epub_safety_scanner.py --path ~/Desktop/ -v
+```
+
+Shows INFO-level findings (external `<a href>` links) that are hidden by default. Useful for auditing what external URLs an EPUB references. URLs are color-coded: **green** for safe `<a href>` links, **red** for suspicious external resources.
+
+## Understanding the Output
 
 | Severity | Meaning | Default |
 |----------|---------|---------|
-| **CRITICAL** | High risk — JavaScript, executables, disguised files | Shown |
-| **WARNING** | Medium risk — external resources, suspicious CSS, nested archives | Shown |
+| **CRITICAL** | High risk — JavaScript, executables, disguised files, `<iframe>`, `<applet>` | Shown |
+| **WARNING** | Medium risk — external resource loading (`src`, `action`), suspicious CSS, nested archives | Shown |
 | **INFO** | Low risk — external hyperlinks (`<a href>`) | Hidden (use `-v`) |
 
-URLs are color-coded in terminal output: **green** for safe `<a href>` links, **red** for suspicious external resources.
-
-Exit code `1` if any CRITICAL findings, `0` otherwise.
+- Files with only INFO findings display as **CLEAN** by default
+- URLs in the output are color-coded: **green** = safe `<a href>`, **red** = suspicious
+- Each finding includes the internal file path and an evidence snippet
 
 ## Fix Mode
 
@@ -87,13 +155,37 @@ Exit code `1` if any CRITICAL findings, `0` otherwise.
 | CSS `url(https://...)`, `@import url(https://...)` | Removed |
 | `<a href="https://...">` | **Preserved** (normal for ebooks) |
 
+If no threats are found, no fixed file is created.
+
+## Claude.ai Skill
+
+You can package this scanner as a Claude.ai Skill for use in the web interface.
+
+### Build the Skill ZIP
+
+```bash
+make skill
+```
+
+This creates `scan-epub-skill.zip` containing the scanner and skill definition.
+
+### Upload to Claude.ai
+
+1. Go to [claude.ai](https://claude.ai)
+2. Navigate to **Customize > Skills**
+3. Click **+** and select **Upload a skill**
+4. Upload `scan-epub-skill.zip`
+
+Once uploaded, Claude will use the scanner when you ask it to check EPUB files for security threats.
+
 ## Development
 
 ```bash
-make test          # Run unit tests
+make test          # Run unit tests (111 tests)
 make lint          # Run linters (ruff, bandit, mypy)
 make check         # Run all checks (lint + test)
 make format        # Auto-format code
+make skill         # Package claude.ai skill ZIP
 ```
 
 ## License
