@@ -7,7 +7,7 @@ Detect and fix malicious content embedded in EPUB files. Scans entirely in-memor
 > [!TIP]
 > For security, always download from this GitHub repository directly. Do not download from third-party sources.
 
-**[Download scan-epub-skill.zip](https://github.com/stanwu/epub-safety-scanner/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)** — go to the latest successful run, scroll to **Artifacts**, and download `scan-epub-skill`.
+**[Download scan-epub-skill.zip](https://github.com/stanwu/epub-safety-scanner/releases/latest)** from the latest release.
 
 ## Features
 
