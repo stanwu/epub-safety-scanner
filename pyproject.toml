@@ -1,0 +1,27 @@
+[project]
+name = "epub-safety-scanner"
+version = "1.0.0"
+description = "Detect malicious content in EPUB files"
+requires-python = ">=3.9"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "S", "B", "UP"]
+ignore = ["S101"]  # allow assert in tests
+
+[tool.bandit]
+exclude_dirs = [".venv", "test_*"]
+skips = ["B101"]  # allow assert
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
