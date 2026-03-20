@@ -23,7 +23,9 @@ Detect and fix malicious content embedded in EPUB files. Scans entirely in-memor
 - **ZIP security** — path traversal (`../`), zip bomb detection (size & compression ratio), file integrity checks
 - **SVG scanning** — scripts and event handlers inside SVG images
 - **External URL detection** — passive tracking via `src`, `action`, CSS `url()` flagged as WARNING; safe `<a href>` links kept as INFO
-- **Auto-fix mode** — remove threats and repack as `[fixed] filename.epub`
+- **Auto-tagging** — detected files tagged `[detect]`, fixed files tagged `[fixed]` (disable with `--notag`)
+- **Auto-fix mode** — remove threats and replace original in-place, tagged as `[fixed] filename.epub`
+- **Progress display** — per-file scan/fix progress shown during batch operations
 - **Markdown report** — export detailed scan results to `.md` file
 - **Claude.ai Skill** — package as a skill for use in Claude.ai
 
@@ -71,7 +73,8 @@ python3 epub_safety_scanner.py --path PATH [OPTIONS]
 | Flag | Description |
 |------|-------------|
 | `--path PATH` | **(Required)** EPUB file, directory, or glob pattern. Supports `~` expansion. |
-| `--fix` | Remove threats and save as `[fixed] filename.epub` in the same directory. |
+| `--fix` | Remove threats and replace original in-place, tagged as `[fixed] filename.epub`. |
+| `--notag` | Skip auto-tagging (by default, detected files are tagged with `[detect]` or `[fixed]` prefix). |
 | `--report FILE` | Write a detailed Markdown report to the specified file. |
 | `-v, --verbose` | Show INFO-level findings (external hyperlinks, hidden by default). |
 | `--no-color` | Disable colored terminal output. |
@@ -96,17 +99,13 @@ python3 epub_safety_scanner.py --path ~/Desktop/
 
 Automatically finds all `*.epub` files in the directory. Displays per-file results and a final summary showing how many files have issues.
 
-### Scenario 3: Fix Threats and Verify
+### Scenario 3: Fix Threats
 
 ```bash
-# Step 1: Fix all threats
 python3 epub_safety_scanner.py --path ~/Desktop/ --fix
-
-# Step 2: Verify the fixed files are clean
-python3 epub_safety_scanner.py --path ~/Desktop/"[fixed]*"
 ```
 
-Each fixed EPUB is saved as `[fixed] original.epub` in the same directory. The original file is left untouched.
+Threats are removed and the original file is replaced in-place. Fixed files are tagged as `[fixed] original.epub`. Files with remaining threats are tagged as `[detect] original.epub`. Re-running the scanner automatically strips old tags before scanning.
 
 ### Scenario 4: Generate a Report for Review
 
@@ -150,7 +149,7 @@ Shows INFO-level findings (external `<a href>` links) that are hidden by default
 
 ## Fix Mode
 
-`--fix` removes threats and saves a clean copy as `[fixed] original.epub`:
+`--fix` removes threats and replaces the original file in-place, then tags it as `[fixed] original.epub`:
 
 | Threat | Action |
 |--------|--------|
@@ -167,7 +166,21 @@ Shows INFO-level findings (external `<a href>` links) that are hidden by default
 | CSS `url(https://...)`, `@import url(https://...)` | Removed |
 | `<a href="https://...">` | **Preserved** (normal for ebooks) |
 
-If no threats are found, no fixed file is created.
+If no threats are found, the file is left unchanged.
+
+## Auto-Tagging
+
+By default, the scanner automatically tags files after scanning:
+
+| Condition | Tag | Example |
+|-----------|-----|---------|
+| Threats detected, no fix | `[detect]` | `[detect] book.epub` |
+| Threats detected, fix succeeded | `[fixed]` | `[fixed] book.epub` |
+| Clean | No tag | `book.epub` |
+
+- Re-running the scanner **strips all existing tags** before scanning, so tags never accumulate
+- Tags are case-insensitive: `[Detect]`, `[FIXED]`, etc. are all normalized to lowercase
+- Use `--notag` to disable auto-tagging
 
 ## Claude.ai Skill
 
