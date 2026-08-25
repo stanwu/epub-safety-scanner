@@ -5,7 +5,6 @@ import os
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Optional, Union
 
 import pytest
 
@@ -23,7 +22,7 @@ from epub_safety_scanner import (
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def make_epub(files: dict[str, Union[str, bytes]], path: Optional[str] = None) -> str:
+def make_epub(files: dict[str, str | bytes], path: str | None = None) -> str:
     """Create a minimal EPUB file in a temp directory.
 
     Args:
@@ -65,7 +64,7 @@ def make_epub(files: dict[str, Union[str, bytes]], path: Optional[str] = None) -
     return path
 
 
-def scan_epub_with_files(files: dict[str, Union[str, bytes]]) -> ScanResult:
+def scan_epub_with_files(files: dict[str, str | bytes]) -> ScanResult:
     """Create an EPUB with given files and scan it. Returns the ScanResult."""
     path = make_epub(files)
     try:
@@ -78,9 +77,9 @@ def scan_epub_with_files(files: dict[str, Union[str, bytes]]) -> ScanResult:
 
 def has_finding(
     result: ScanResult,
-    severity: Optional[Severity] = None,
-    category: Optional[str] = None,
-    desc_contains: Optional[str] = None,
+    severity: Severity | None = None,
+    category: str | None = None,
+    desc_contains: str | None = None,
 ) -> bool:
     """Check if the result contains a finding matching the criteria."""
     for f in result.findings:
