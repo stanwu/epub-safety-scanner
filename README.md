@@ -40,7 +40,7 @@ python3 epub_safety_scanner.py --path ~/Desktop/
 python3 epub_safety_scanner.py --path ~/Desktop/ --fix
 ```
 
-No external dependencies required — Python 3.9+ stdlib only.
+No external dependencies required — Python 3.10+ stdlib only.
 
 ## Requirements
 
