@@ -78,6 +78,13 @@ python3 epub_safety_scanner.py --path PATH [OPTIONS]
 
 **Exit codes:** `1` if any CRITICAL findings, `0` otherwise.
 
+## Installation (as a uv tool)
+
+```bash
+uv tool install /path/to/epub-safety-scanner   # or: git+https://.../epub-safety-scanner.git
+epub-safety-scanner --path book.epub
+```
+
 ## Usage Scenarios
 
 ### Scenario 1: Scan a Single EPUB
