@@ -54,12 +54,17 @@ git clone https://github.com/stanwu/epub-safety-scanner.git
 cd epub-safety-scanner
 ```
 
+Install as a standalone tool with uv:
+
+```bash
+uv tool install .
+epub-safety-scanner --path book.epub
+```
+
 For development (linting, testing):
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
+uv sync --all-groups
 ```
 
 ## CLI Reference
