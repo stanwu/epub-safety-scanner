@@ -1024,7 +1024,7 @@ class TestMultiFileSummary:
                 os.path.join(tmpdir, "evil.epub"),
             )
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1060,7 +1060,7 @@ class TestMultiFileSummary:
                 os.path.join(tmpdir, "ok.epub"),
             )
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1086,7 +1086,7 @@ class TestMultiFileSummary:
             with open(os.path.join(tmpdir, "corrupt.epub"), "wb") as f:
                 f.write(b"this is not a zip file")
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1109,7 +1109,7 @@ class TestMultiFileSummary:
                 os.path.join(tmpdir, "single.epub"),
             )
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", epub_path, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", epub_path, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1247,7 +1247,6 @@ class TestMarkdownReport:
                 "sys.argv",
                 [
                     "scanner",
-                    "--path",
                     tmpdir,
                     "--no-color",
                     "--report",
@@ -1274,7 +1273,7 @@ class TestMarkdownReport:
                 {"ch1.xhtml": '<html xmlns="http://www.w3.org/1999/xhtml"><body><p>ok</p></body></html>'},
                 os.path.join(tmpdir, "book.epub"),
             )
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
             assert "Report saved to" not in output
@@ -1626,7 +1625,6 @@ class TestEPUBFixer:
                 "sys.argv",
                 [
                     "scanner",
-                    "--path",
                     tmpdir,
                     "--no-color",
                     "--fix",
