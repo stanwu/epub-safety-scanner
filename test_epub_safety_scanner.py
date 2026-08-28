@@ -5,7 +5,6 @@ import os
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Optional, Union
 
 import pytest
 
@@ -23,7 +22,7 @@ from epub_safety_scanner import (
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def make_epub(files: dict[str, Union[str, bytes]], path: Optional[str] = None) -> str:
+def make_epub(files: dict[str, str | bytes], path: str | None = None) -> str:
     """Create a minimal EPUB file in a temp directory.
 
     Args:
@@ -65,7 +64,7 @@ def make_epub(files: dict[str, Union[str, bytes]], path: Optional[str] = None) -
     return path
 
 
-def scan_epub_with_files(files: dict[str, Union[str, bytes]]) -> ScanResult:
+def scan_epub_with_files(files: dict[str, str | bytes]) -> ScanResult:
     """Create an EPUB with given files and scan it. Returns the ScanResult."""
     path = make_epub(files)
     try:
@@ -78,9 +77,9 @@ def scan_epub_with_files(files: dict[str, Union[str, bytes]]) -> ScanResult:
 
 def has_finding(
     result: ScanResult,
-    severity: Optional[Severity] = None,
-    category: Optional[str] = None,
-    desc_contains: Optional[str] = None,
+    severity: Severity | None = None,
+    category: str | None = None,
+    desc_contains: str | None = None,
 ) -> bool:
     """Check if the result contains a finding matching the criteria."""
     for f in result.findings:
@@ -1025,7 +1024,7 @@ class TestMultiFileSummary:
                 os.path.join(tmpdir, "evil.epub"),
             )
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1061,7 +1060,7 @@ class TestMultiFileSummary:
                 os.path.join(tmpdir, "ok.epub"),
             )
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1087,7 +1086,7 @@ class TestMultiFileSummary:
             with open(os.path.join(tmpdir, "corrupt.epub"), "wb") as f:
                 f.write(b"this is not a zip file")
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1110,7 +1109,7 @@ class TestMultiFileSummary:
                 os.path.join(tmpdir, "single.epub"),
             )
 
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", epub_path, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", epub_path, "--no-color"])
             main()
             output = capsys.readouterr().out
 
@@ -1248,7 +1247,6 @@ class TestMarkdownReport:
                 "sys.argv",
                 [
                     "scanner",
-                    "--path",
                     tmpdir,
                     "--no-color",
                     "--report",
@@ -1275,7 +1273,7 @@ class TestMarkdownReport:
                 {"ch1.xhtml": '<html xmlns="http://www.w3.org/1999/xhtml"><body><p>ok</p></body></html>'},
                 os.path.join(tmpdir, "book.epub"),
             )
-            monkeypatch.setattr("sys.argv", ["scanner", "--path", tmpdir, "--no-color"])
+            monkeypatch.setattr("sys.argv", ["scanner", tmpdir, "--no-color"])
             main()
             output = capsys.readouterr().out
             assert "Report saved to" not in output
@@ -1627,7 +1625,6 @@ class TestEPUBFixer:
                 "sys.argv",
                 [
                     "scanner",
-                    "--path",
                     tmpdir,
                     "--no-color",
                     "--fix",

@@ -34,13 +34,16 @@ git clone https://github.com/stanwu/epub-safety-scanner.git
 cd epub-safety-scanner
 
 # Scan all EPUBs on your Desktop
-python3 epub_safety_scanner.py --path ~/Desktop/
+python3 epub_safety_scanner.py ~/Desktop/
+
+# Scan with a glob (supports ** recursion)
+python3 epub_safety_scanner.py '**/*.epub'
 
 # Fix any threats found
-python3 epub_safety_scanner.py --path ~/Desktop/ --fix
+python3 epub_safety_scanner.py ~/Desktop/ --fix
 ```
 
-No external dependencies required — Python 3.9+ stdlib only.
+No external dependencies required — Python 3.10+ stdlib only.
 
 ## Requirements
 
@@ -54,23 +57,28 @@ git clone https://github.com/stanwu/epub-safety-scanner.git
 cd epub-safety-scanner
 ```
 
+Install as a standalone tool with uv:
+
+```bash
+uv tool install .
+epub-safety-scanner book.epub
+```
+
 For development (linting, testing):
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
+uv sync --all-groups
 ```
 
 ## CLI Reference
 
 ```
-python3 epub_safety_scanner.py --path PATH [OPTIONS]
+python3 epub_safety_scanner.py PATTERN [PATTERN ...] [OPTIONS]
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--path PATH` | **(Required)** EPUB file, directory, or glob pattern. Supports `~` expansion. |
+| `PATTERN` | **(Required, repeatable)** EPUB file, directory, or glob pattern (e.g. `'**/*.epub'`). Supports `~` expansion. Duplicates are scanned once. |
 | `--fix` | Remove threats and save as `[fixed] filename.epub` in the same directory. |
 | `--report FILE` | Write a detailed Markdown report to the specified file. |
 | `-v, --verbose` | Show INFO-level findings (external hyperlinks, hidden by default). |
@@ -78,12 +86,19 @@ python3 epub_safety_scanner.py --path PATH [OPTIONS]
 
 **Exit codes:** `1` if any CRITICAL findings, `0` otherwise.
 
+## Installation (as a uv tool)
+
+```bash
+uv tool install /path/to/epub-safety-scanner   # or: git+https://.../epub-safety-scanner.git
+epub-safety-scanner book.epub
+```
+
 ## Usage Scenarios
 
 ### Scenario 1: Scan a Single EPUB
 
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/book.epub
+python3 epub_safety_scanner.py ~/Desktop/book.epub
 ```
 
 Outputs a severity summary per file. CLEAN means no threats detected.
@@ -91,19 +106,19 @@ Outputs a severity summary per file. CLEAN means no threats detected.
 ### Scenario 2: Batch Scan a Directory
 
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/
+python3 epub_safety_scanner.py ~/Desktop/
 ```
 
-Automatically finds all `*.epub` files in the directory. Displays per-file results and a final summary showing how many files have issues.
+Directories are expanded to `*.epub`. Globs work too: `python3 epub_safety_scanner.py 'books/**/*.epub' other.epub`. Displays per-file results and a final summary showing how many files have issues. Displays per-file results and a final summary showing how many files have issues.
 
 ### Scenario 3: Fix Threats and Verify
 
 ```bash
 # Step 1: Fix all threats
-python3 epub_safety_scanner.py --path ~/Desktop/ --fix
+python3 epub_safety_scanner.py ~/Desktop/ --fix
 
 # Step 2: Verify the fixed files are clean
-python3 epub_safety_scanner.py --path ~/Desktop/"[fixed]*"
+python3 epub_safety_scanner.py '~/Desktop/[fixed] *.epub'
 ```
 
 Each fixed EPUB is saved as `[fixed] original.epub` in the same directory. The original file is left untouched.
@@ -111,7 +126,7 @@ Each fixed EPUB is saved as `[fixed] original.epub` in the same directory. The o
 ### Scenario 4: Generate a Report for Review
 
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/ --report report.md
+python3 epub_safety_scanner.py ~/Desktop/ --report report.md
 ```
 
 Creates a Markdown report with:
@@ -123,7 +138,7 @@ Creates a Markdown report with:
 ### Scenario 5: Full Workflow (Scan + Fix + Report)
 
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/ --fix --report report.md
+python3 epub_safety_scanner.py ~/Desktop/ --fix --report report.md
 ```
 
 Scans all EPUBs, fixes threats, and exports a report — all in one command.
@@ -131,7 +146,7 @@ Scans all EPUBs, fixes threats, and exports a report — all in one command.
 ### Scenario 6: Verbose Mode — Inspect External Links
 
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/ -v
+python3 epub_safety_scanner.py ~/Desktop/ -v
 ```
 
 Shows INFO-level findings (external `<a href>` links) that are hidden by default. Useful for auditing what external URLs an EPUB references. URLs are color-coded: **green** for safe `<a href>` links, **red** for suspicious external resources.

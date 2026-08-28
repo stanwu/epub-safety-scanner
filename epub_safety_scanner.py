@@ -299,22 +299,26 @@ XHTML_NS = "http://www.w3.org/1999/xhtml"
 class EPUBScanner:
     """Scans EPUB files for security threats."""
 
-    def scan(self, path_pattern: str) -> list[ScanResult]:
-        """Scan EPUB file(s) matching the given path or glob pattern."""
-        expanded = os.path.expanduser(path_pattern)
-        # If a directory is given, automatically scan *.epub inside it
-        if os.path.isdir(expanded):
-            expanded = os.path.join(expanded, "*.epub")
-        paths = glob.glob(expanded)
-        if not paths:
-            return [ScanResult(epub_path=expanded, error=f"No files found matching: {expanded}")]
+    def scan(self, *path_patterns: str) -> list[ScanResult]:
+        """Scan EPUB file(s) matching the given path(s) or glob pattern(s).
 
-        results = []
-        for p in sorted(paths):
-            if p.lower().endswith(".epub"):
-                results.append(self._scan_single(p))
-        if not results:
-            return [ScanResult(epub_path=expanded, error="No .epub files found in matched paths")]
+        Accepts one or more paths, directories, or (recursive) glob patterns.
+        """
+        results: list[ScanResult] = []
+        seen: set[str] = set()
+        for path_pattern in path_patterns:
+            expanded = os.path.expanduser(path_pattern)
+            # If a directory is given, automatically scan *.epub inside it
+            if os.path.isdir(expanded):
+                expanded = os.path.join(expanded, "*.epub")
+            paths = glob.glob(expanded, recursive=True)
+            if not paths:
+                results.append(ScanResult(epub_path=expanded, error=f"No files found matching: {expanded}"))
+                continue
+            for p in sorted(paths):
+                if p.lower().endswith(".epub") and p not in seen:
+                    seen.add(p)
+                    results.append(self._scan_single(p))
         return results
 
     def _scan_single(self, epub_path: str) -> ScanResult:
@@ -1015,9 +1019,10 @@ def main() -> int:
         description="EPUB Safety Scanner - Detect malicious content in EPUB files",
     )
     parser.add_argument(
-        "--path",
-        required=True,
-        help="Path to EPUB file, directory, or glob pattern (e.g. '*.epub', '~/Desktop/', 'books/*.epub')",
+        "paths",
+        nargs="+",
+        metavar="PATTERN",
+        help="EPUB file, directory, or glob pattern (may be given multiple times, e.g. '**/*.epub', '~/Desktop/')",
     )
     parser.add_argument(
         "--no-color",
@@ -1043,7 +1048,7 @@ def main() -> int:
     args = parser.parse_args()
 
     scanner = EPUBScanner()
-    results = scanner.scan(args.path)
+    results = scanner.scan(*args.paths)
 
     use_color = not args.no_color and sys.stdout.isatty()
     total_critical = 0

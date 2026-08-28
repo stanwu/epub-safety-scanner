@@ -1,7 +1,7 @@
 repos:
   # Code formatting & linting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+    rev: v0.16.4
     hooks:
       - id: ruff
         args: [--fix]
@@ -9,7 +9,7 @@ repos:
 
   # Security linting
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.3
+    rev: 1.9.4
     hooks:
       - id: bandit
         args: [-c, pyproject.toml]
@@ -17,14 +17,14 @@ repos:
 
   # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+    rev: v2.3.1
     hooks:
       - id: mypy
         additional_dependencies: [types-setuptools]
 
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
       - id: check-toml

@@ -11,39 +11,47 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@v4
+      # https://github.com/marketplace/actions/checkout
+      - uses: actions/checkout@v7
 
+      # https://github.com/marketplace/actions/setup-python
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
+      # https://github.com/marketplace/actions/astral-sh-setup-uv
+      - name: Install uv with all available options
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: v10.0.1
+
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: uv sync --all-groups
 
       - name: Lint with ruff
-        run: ruff check epub_safety_scanner.py test_epub_safety_scanner.py
+        run: uv run ruff check epub_safety_scanner.py test_epub_safety_scanner.py
 
       - name: Format check with ruff
-        run: ruff format --check epub_safety_scanner.py test_epub_safety_scanner.py
+        run: uv run ruff format --check epub_safety_scanner.py test_epub_safety_scanner.py
 
       - name: Type check with mypy
-        run: mypy epub_safety_scanner.py
+        run: uv run mypy epub_safety_scanner.py
 
       - name: Security check with bandit
-        run: bandit -c pyproject.toml -r epub_safety_scanner.py
+        run: uv run bandit -c pyproject.toml -r epub_safety_scanner.py
 
       - name: Run tests
-        run: pytest -v
+        run: uv run pytest -v
 
   package-skill:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Package skill ZIP
         run: |
@@ -51,7 +59,7 @@ jobs:
           cd skills && zip -r ../scan-epub-skill.zip scan-epub/
 
       - name: Upload skill artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scan-epub-skill
           path: scan-epub-skill.zip

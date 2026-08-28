@@ -13,14 +13,14 @@ Scan EPUB files for malicious content and optionally fix threats.
 Run the scanner using the `epub_safety_scanner.py` file included in this skill:
 
 ```bash
-python3 epub_safety_scanner.py --path <path> [options]
+python3 epub_safety_scanner.py PATTERN [PATTERN ...] [options]
 ```
 
 ## Options
 
 | Flag | Description |
 |------|-------------|
-| `--path PATH` | **(Required)** EPUB file, directory, or glob pattern |
+| `PATTERN` | **(Required, repeatable)** EPUB file, directory, or glob pattern (e.g. `'**/*.epub'`) |
 | `--fix` | Remove threats and save as `[fixed] filename.epub` |
 | `--report FILE` | Write a Markdown report to the specified file |
 | `-v, --verbose` | Show INFO-level findings (external links, hidden by default) |
@@ -30,22 +30,27 @@ python3 epub_safety_scanner.py --path <path> [options]
 
 **Scan a single file:**
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/book.epub
+python3 epub_safety_scanner.py ~/Desktop/book.epub
 ```
 
 **Scan all EPUBs in a directory:**
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/
+python3 epub_safety_scanner.py ~/Desktop/
+```
+
+**Scan with a glob (supports `**` recursion):**
+```bash
+python3 epub_safety_scanner.py '**/*.epub'
 ```
 
 **Fix threats and generate a report:**
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/ --fix --report report.md
+python3 epub_safety_scanner.py ~/Desktop/ --fix --report report.md
 ```
 
 **Show all findings including external links:**
 ```bash
-python3 epub_safety_scanner.py --path ~/Desktop/ -v
+python3 epub_safety_scanner.py ~/Desktop/ -v
 ```
 
 ## Understanding the Output

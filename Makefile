@@ -1,30 +1,27 @@
 .PHONY: test lint format check install clean skill
 
-PYTHON := .venv/bin/python
-PIP := .venv/bin/pip
-
 ## Run unit tests
 test:
-	$(PYTHON) -m pytest test_epub_safety_scanner.py -v
+	uv run pytest test_epub_safety_scanner.py -v
 
 ## Run linters (ruff + bandit + mypy)
 lint:
-	$(PYTHON) -m ruff check .
-	$(PYTHON) -m bandit -c pyproject.toml -r epub_safety_scanner.py
-	$(PYTHON) -m mypy epub_safety_scanner.py
+	uv run ruff check .
+	uv run bandit -c pyproject.toml -r epub_safety_scanner.py
+	uv run mypy epub_safety_scanner.py
 
 ## Auto-format code
 format:
-	$(PYTHON) -m ruff format .
-	$(PYTHON) -m ruff check --fix .
+	uv run ruff format .
+	uv run ruff check --fix .
 
 ## Run all checks (lint + test)
 check: lint test
 
 ## Install dev dependencies
 install:
-	$(PIP) install -r requirements-dev.txt
-	$(PYTHON) -m pre_commit install
+	uv sync --all-groups
+	uv run pre-commit install --install-hooks
 
 ## Package claude.ai skill as ZIP
 skill:
